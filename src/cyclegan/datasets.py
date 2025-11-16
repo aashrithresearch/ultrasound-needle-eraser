@@ -1,36 +1,49 @@
 # -*- coding: utf-8 -*-
-import sys
-sys.path.append('/content/ultrasound-needle-eraser')
 
+import os
+from glob import glob
+from PIL import Image
+import random
 import torch
 from torch.utils.data import Dataset
-from src.main.loader import UltrasoundNeedleDataset
+from torchvision import transforms
+
 
 class CycleGANDataset(Dataset):
-    def __init__(self, image_dir_A, image_dir_B, img_size=(256,256)):
-        #domain a: images with needles
-        self.dataset_A = UltrasoundNeedleDataset(image_dir_A, mask_dir=None, transform=None)
-        #domain b: needle-free images
-        self.dataset_B = UltrasoundNeedleDataset(image_dir_B, mask_dir=None, transform=None)
-        self.length = max(len(self.dataset_A), len(self.dataset_B))
+    def __init__(self, root_dir, img_size=256):
+        self.paths = []
+        for sub in ["1", "2", "3", "4"]:
+            self.paths.extend(
+                sorted(glob(os.path.join(root_dir, sub, "*.png")))
+            )
+            self.paths.extend(
+                sorted(glob(os.path.join(root_dir, sub, "*.jpg")))
+            )
 
-        #transforms
-        import torchvision.transforms as T
-        self.transform = T.Compose([
-            T.Resize(img_size),
-            T.CenterCrop(img_size),
-            T.ToTensor(),
+        assert len(self.paths) > 0, "No images found in dataset."
+
+        self.transform = transforms.Compose([
+            transforms.Resize((img_size, img_size)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5], [0.5])  # grayscale [-1,1]
         ])
 
+        self.A_paths = self.paths
+        self.B_paths = self.paths
+
     def __len__(self):
-        return self.length
+        return len(self.paths)
 
     def __getitem__(self, idx):
-        a_img = self.dataset_A[idx % len(self.dataset_A)]["image"]
-        b_img = self.dataset_B[idx % len(self.dataset_B)]["image"]
+        #random a
+        img_A_path = random.choice(self.A_paths)
+        img_A = Image.open(img_A_path).convert("L")
 
-        #apply
-        a_img = self.transform(a_img)
-        b_img = self.transform(b_img)
+        #random b
+        img_B_path = random.choice(self.B_paths)
+        img_B = Image.open(img_B_path).convert("L")
 
-        return a_img, b_img
+        img_A = self.transform(img_A)
+        img_B = self.transform(img_B)
+
+        return {"A": img_A, "B": img_B}
