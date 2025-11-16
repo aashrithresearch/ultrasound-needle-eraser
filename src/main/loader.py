@@ -17,10 +17,16 @@ def get_preprocess_transform(img_size=(256, 256)):
 
 class UltrasoundNeedleDataset(Dataset):
     def __init__(self, image_dir, mask_dir=None, transform=None):
-        self.image_paths = sorted(glob(os.path.join(image_dir, "*.png"))) + \
-                           sorted(glob(os.path.join(image_dir, "*.jpg"))) + \
-                           sorted(glob(os.path.join(image_dir, "*.jpeg")))
+        self.image_paths = sorted(glob(os.path.join(image_dir, "**", "*.png"), recursive=True))
+        self.image_paths += sorted(glob(os.path.join(image_dir, "**", "*.jpg"), recursive=True))
+        self.image_paths += sorted(glob(os.path.join(image_dir, "**", "*.jpeg"), recursive=True))
 
+        if mask_dir:
+            self.mask_paths = sorted(glob(os.path.join(mask_dir, "**", "*.png"), recursive=True))
+            self.mask_paths += sorted(glob(os.path.join(mask_dir, "**", "*.jpg"), recursive=True))
+            self.mask_paths += sorted(glob(os.path.join(mask_dir, "**", "*.jpeg"), recursive=True))
+            assert len(self.image_paths) == len(self.mask_paths), "Images and masks must match 1-to-1"
+            
         self.mask_dir = mask_dir
         self.transform = transform
 
