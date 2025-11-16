@@ -8,6 +8,9 @@ import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 import torchvision.transforms as T
 
+# -------------------------
+# Preprocessing transform
+# -------------------------
 def get_preprocess_transform(img_size=(256, 256)):
     return T.Compose([
         T.Resize(img_size),
@@ -15,42 +18,41 @@ def get_preprocess_transform(img_size=(256, 256)):
         T.ToTensor(),
     ])
 
+# -------------------------
+# Dataset class
+# -------------------------
 class UltrasoundNeedleDataset(Dataset):
     def __init__(self, image_dir, mask_dir=None, transform=None):
+        # Recursively load all images
         self.image_paths = sorted(glob(os.path.join(image_dir, "**", "*.png"), recursive=True))
         self.image_paths += sorted(glob(os.path.join(image_dir, "**", "*.jpg"), recursive=True))
         self.image_paths += sorted(glob(os.path.join(image_dir, "**", "*.jpeg"), recursive=True))
 
+        # Recursively load all masks if provided
         if mask_dir:
             self.mask_paths = sorted(glob(os.path.join(mask_dir, "**", "*.png"), recursive=True))
             self.mask_paths += sorted(glob(os.path.join(mask_dir, "**", "*.jpg"), recursive=True))
             self.mask_paths += sorted(glob(os.path.join(mask_dir, "**", "*.jpeg"), recursive=True))
-            assert len(self.image_paths) == len(self.mask_paths), "Images and masks must match 1-to-1"
-            
-        self.mask_dir = mask_dir
-        self.transform = transform
-
-        if mask_dir:
-            self.mask_paths = sorted(glob(os.path.join(mask_dir, "*.png")))
+            # Ensure same number of images and masks
             assert len(self.image_paths) == len(self.mask_paths), \
-                "Images and masks must match 1-to-1"
+                f"Images ({len(self.image_paths)}) and masks ({len(self.mask_paths)}) must match 1-to-1"
         else:
             self.mask_paths = [None] * len(self.image_paths)
+
+        self.transform = transform
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
-        img = Image.open(self.image_paths[idx]).convert("L")  #grayscale ultrasound
+        img = Image.open(self.image_paths[idx]).convert("L")  # grayscale ultrasound
 
-        #load mask
         mask_path = self.mask_paths[idx]
         if mask_path is not None:
             mask = Image.open(mask_path).convert("L")
         else:
             mask = None
 
-        #apply transforms
         if self.transform:
             img = self.transform(img)
             if mask is not None:
@@ -62,6 +64,9 @@ class UltrasoundNeedleDataset(Dataset):
             "path": self.image_paths[idx]
         }
 
+# -------------------------
+# Train / Val / Test split
+# -------------------------
 def create_dataloaders(
     image_dir,
     mask_dir=None,
@@ -86,10 +91,13 @@ def create_dataloaders(
 
     return train_loader, val_loader, test_loader
 
+# -------------------------
+# Quick test
+# -------------------------
 if __name__ == "__main__":
     train_dl, val_dl, test_dl = create_dataloaders(
-        image_dir="/content/simus/images",
-        mask_dir="/content/simus/masks",
+        image_dir="/content/drive/MyDrive/zk6scwv52p-2/Needle segmentation/TestDatabase/Images",
+        mask_dir="/content/drive/MyDrive/zk6scwv52p-2/Needle segmentation/TestDatabase/Labels",
         batch_size=4
     )
     print("Train batches:", len(train_dl))
